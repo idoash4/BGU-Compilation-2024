@@ -364,9 +364,45 @@ module Reader : READER = struct
                     ScmPair(ScmSymbol "string-append", argl)) in
     nt1 str
   and nt_vector str =
-    raise (X_not_yet_implemented "for hw 1")
+    let nt1 = char '#' in
+    let nt2 = char '(' in
+    let nt3 = star nt_sexpr in
+    let nt4 = char ')' in
+    let nt1 = caten nt1 (caten nt2 (caten nt3 nt4)) in
+    let nt1 = pack nt1 (fun (_, (_, (items, _))) -> items) in
+    let nt1 = pack nt1 (fun items -> ScmVector items) in
+    nt1 str
   and nt_list str =
-    raise (X_not_yet_implemented "for hw 1")
+    let nt1 = char '(' in
+    let nt2 = star nt_sexpr in
+    let nt3 = char ')' in
+    let nt1 = caten nt1 (caten nt2 nt3) in
+    let nt1 = pack nt1 (fun (_, (items, _)) -> items) in
+    let nt1 = pack nt1
+                (fun items ->
+                  List.fold_right
+                    (fun car cdr -> ScmPair(car, cdr))
+                    items
+                    ScmNil) in
+    nt1 str
+  
+  and nt_dotted_list str =
+    let nt1 = char '(' in
+    let nt2 = plus nt_sexpr in
+    let nt3 = char '.' in
+    let nt4 = nt_sexpr in
+    let nt5 = char ')' in
+    let nt1 = caten nt1 (caten nt2 (caten nt3 (caten nt4 nt5))) in
+    let nt1 = pack nt1 (fun (_, (items, (_, (last, _)))) ->
+                  (items, last)) in
+    let nt1 = pack nt1
+                (fun (items, last) ->
+                  List.fold_right
+                    (fun car cdr -> ScmPair(car, cdr))
+                    items
+                    last) in
+    nt1 str
+
   and make_quoted_form nt_qf qf_name =
     let nt1 = caten nt_qf nt_sexpr in
     let nt1 = pack nt1
@@ -386,7 +422,7 @@ module Reader : READER = struct
   and nt_sexpr str = 
     let nt1 =
       disj_list [nt_void; nt_number; nt_boolean; nt_char; nt_symbol;
-                 nt_string; nt_vector; nt_list; nt_quoted_forms] in
+                 nt_string; nt_vector; nt_list; nt_dotted_list; nt_quoted_forms] in
     let nt1 = make_skipped_star nt1 in
     nt1 str;;
 
@@ -512,7 +548,7 @@ module Tag_Parser : TAG_PARSER = struct
   let reserved_word_list =
     ["and"; "begin"; "cond"; "do"; "else"; "if"; "lambda";
      "let"; "let*"; "letrec"; "or"; "quasiquote"; "quote";
-     "set!"; "unquote"; "unquote-splicing"];;
+     "set!"; "unquote"; "unquote-splicing"; "define"];;
 
   let rec scheme_list_to_ocaml = function
     | ScmPair(car, cdr) ->
@@ -554,7 +590,7 @@ module Tag_Parser : TAG_PARSER = struct
        ScmPair (ScmSymbol "append",
                 ScmPair (car, ScmPair (cdr, ScmNil)))
     | ScmPair (car, cdr) ->
-       raise (X_not_yet_implemented "hw 1")
+        ScmPair (ScmSymbol "cons", ScmPair (macro_expand_qq car, ScmPair (macro_expand_qq cdr, ScmNil)))
     | ScmVector sexprs ->
        if (list_contains_unquote_splicing sexprs)
        then let sexpr = macro_expand_qq
@@ -578,7 +614,55 @@ module Tag_Parser : TAG_PARSER = struct
                                            ScmNil))));;
 
   let rec macro_expand_cond_ribs ribs = 
-    raise (X_not_yet_implemented "hw 1");;
+    let ribs = (match (scheme_list_to_ocaml ribs) with
+                | ribs, ScmNil -> ribs
+                | _ -> raise (X_syntax "invalid cond-ribs")) in
+    let rec run = function
+      | (ScmPair (ScmSymbol "else", sexprs)) :: _ ->
+        (ScmPair (ScmSymbol "begin", sexprs))
+      | (ScmPair (test, ScmPair (ScmSymbol "=>", ScmPair(sexp, ScmNil)))) :: rest ->
+          ScmPair 
+            (ScmSymbol "let",
+              ScmPair 
+                (ScmPair 
+                  (ScmPair (ScmSymbol "value", ScmPair (test, ScmNil)),
+                    ScmPair 
+                      (ScmPair 
+                        (ScmSymbol "f",
+                          ScmPair 
+                            (ScmPair 
+                              (ScmSymbol "lambda",
+                                ScmPair (ScmNil, ScmPair (sexp, ScmNil))),
+                        ScmNil)),
+                      ScmPair 
+                        (ScmPair 
+                          (ScmSymbol "rest",
+                            ScmPair 
+                            (ScmPair (ScmSymbol "lambda",
+                              ScmPair (ScmNil, ScmPair (run rest, ScmNil))),
+                          ScmNil)),
+                        ScmNil))),
+                  ScmPair 
+                    (ScmPair 
+                      (ScmSymbol "if",
+                        ScmPair 
+                          (ScmSymbol "value",
+                            ScmPair 
+                              (ScmPair
+                                (ScmPair (ScmSymbol "f", ScmNil),
+                                ScmPair (ScmSymbol "value", ScmNil)),
+                              ScmPair (ScmPair (ScmSymbol "rest", ScmNil), ScmNil)))),
+            ScmNil)))
+      | (ScmPair (test, sexprs)) :: rest ->
+         ScmPair 
+          (ScmSymbol "if",
+            ScmPair (test,
+              ScmPair 
+                (ScmPair (ScmSymbol "begin", sexprs),
+                ScmPair (run rest, ScmNil))))
+      | [] -> ScmVoid
+      | _ -> raise (X_syntax "invalid cond-ribs") in
+    run ribs;;
 
   let is_list_of_unique_names =
     let rec run = function
@@ -705,7 +789,26 @@ module Tag_Parser : TAG_PARSER = struct
                                               ScmPair (ribs, exprs)),
                                      ScmNil))))
     | ScmPair (ScmSymbol "letrec", ScmPair (ribs, exprs)) ->
-       raise (X_not_yet_implemented "hw 1")
+        let ribs = (match (scheme_list_to_ocaml ribs) with
+                    | ribs, ScmNil -> ribs
+                    | _ -> raise (X_syntax "invalid lambda-ribs")) in
+        let new_ribs =
+          scheme_sexpr_list_of_sexpr_list
+            (List.map (function
+                | ScmPair (var, ScmPair (_, ScmNil)) -> ScmPair (var, ScmPair ((ScmPair (ScmSymbol "quote", ScmPair (ScmNil, ScmNil))), ScmNil))
+                | _ -> raise (X_syntax "invalid lambda-rib structure1"))
+              ribs) in
+        let set_exps =
+            (List.map (function
+                | ScmPair (var, ScmPair (value, ScmNil)) -> ScmPair (ScmSymbol "set!", ScmPair (var, ScmPair (value, ScmNil)))
+                | _ -> raise (X_syntax "invalid lambda-rib structure2"))
+              ribs) in
+        let let_exps = (ScmPair (ScmSymbol "let",
+                          ScmPair (ScmNil, exprs))) in
+        let new_exprs = scheme_sexpr_list_of_sexpr_list (set_exps @ [let_exps]) in
+        tag_parse 
+          (ScmPair (ScmSymbol "let",
+            ScmPair (new_ribs, new_exprs)))
     | ScmPair (ScmSymbol "and", ScmNil) -> tag_parse (ScmBoolean true)
     | ScmPair (ScmSymbol "and", exprs) ->
        (match (scheme_list_to_ocaml exprs) with
