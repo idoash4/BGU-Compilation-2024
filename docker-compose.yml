@@ -1,0 +1,8 @@
+version: '3'
+
+services:
+  compilation:
+    image: compilation # Specify the image you want to use for your container
+    container_name: compilation
+    volumes:
+      - .:/home/opam/project # Mount current directory to /app directory inside the container

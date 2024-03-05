@@ -54,6 +54,22 @@
         jne L_error_incorrect_type
 %endmacro
 
+%macro make_pair 2
+        push rbx
+        push rdx
+        push rdi
+        mov rbx, %1
+        mov rdx, %2
+        mov rdi, 1 + 8 * 2
+        call malloc
+        mov byte [rax], T_pair
+        mov qword [rax + 1], rbx
+        mov qword [rax + 1 + 8 * 1], rdx
+        pop rdi
+        pop rdx
+        pop rbx
+%endmacro
+
 %define assert_void(reg)		assert_type reg, T_void
 %define assert_nil(reg)			assert_type reg, T_nil
 %define assert_char(reg)		assert_type reg, T_char
