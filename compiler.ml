@@ -608,6 +608,7 @@ module Tag_Parser : TAG_PARSER = struct
 
   let rec macro_expand_cond_ribs ribs = 
     let ribs = (match (scheme_list_to_ocaml ribs) with
+                | [], ScmNil -> raise (X_syntax "invalid cond-ribs")
                 | ribs, ScmNil -> ribs
                 | _ -> raise (X_syntax "invalid cond-ribs")) in
     let rec run = function

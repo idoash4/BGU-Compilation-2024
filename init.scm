@@ -756,3 +756,4 @@
   (lambda ()
     (write-char #\newline)))
 
+;;; end-of-input
