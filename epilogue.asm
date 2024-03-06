@@ -422,14 +422,16 @@ print_sexpr:
 	mov rdx, qword [rdi + 1] ; length
 	lea rdi, [rdi + 1 + 8]	 ; actual characters
 	mov rcx, qword [stdout]	 ; FILE *
+	ENTER
 	call fwrite
+	LEAVE
 	jmp .Lend
 
 .Luninterned_symbol:
         mov rsi, qword [rdi + 1] ; gensym counter
         mov rdi, fmt_gensym
         jmp .Lemit
-	
+
 .Lpair:
 	push rdi
 	mov rdi, fmt_lparen
@@ -524,7 +526,7 @@ print_sexpr:
 .Lvector_end:
 	add rsp, 8*3
 	mov rdi, fmt_rparen
-	jmp .Lemit	
+	jmp .Lemit
 
 .Lvector_empty:
 	mov rdi, fmt_empty_vector
@@ -619,7 +621,7 @@ print_sexpr:
 .Lstring_char_8:
         mov rdi, fmt_string_char_8
         jmp .Lstring_char_emit
-        
+
 .Lstring_char_9:
         mov rdi, fmt_string_char_9
         jmp .Lstring_char_emit
@@ -651,7 +653,7 @@ print_sexpr:
 .Lstring_char_hex:
         mov rdi, fmt_string_char_hex
         mov rsi, rax
-        jmp .Lstring_char_emit        
+        jmp .Lstring_char_emit
 
 .Lstring_end:
 	add rsp, 8 * 2
@@ -859,7 +861,7 @@ L_code_ptr_is_pair:
 .L_end:
         leave
         ret AND_KILL_FRAME(1)
-        
+
 L_code_ptr_is_void:
         enter 0, 0
         cmp COUNT, 1
@@ -1038,7 +1040,39 @@ L_code_ptr_is_boolean:
 .L_end:
         leave
         ret AND_KILL_FRAME(1)
-        
+
+L_code_ptr_is_boolean_false:
+        enter 0, 0
+        cmp COUNT, 1
+        jne L_error_arg_count_1
+        mov rax, PARAM(0)
+        mov bl, byte [rax]
+        cmp bl, T_boolean_false
+        jne .L_false
+        mov rax, sob_boolean_true
+        jmp .L_end
+.L_false:
+        mov rax, sob_boolean_false
+.L_end:
+        leave
+        ret AND_KILL_FRAME(1)
+
+L_code_ptr_is_boolean_true:
+        enter 0, 0
+        cmp COUNT, 1
+        jne L_error_arg_count_1
+        mov rax, PARAM(0)
+        mov bl, byte [rax]
+        cmp bl, T_boolean_true
+        jne .L_false
+        mov rax, sob_boolean_true
+        jmp .L_end
+.L_false:
+        mov rax, sob_boolean_false
+.L_end:
+        leave
+        ret AND_KILL_FRAME(1)
+
 L_code_ptr_is_number:
         enter 0, 0
         cmp COUNT, 1
@@ -1054,7 +1088,7 @@ L_code_ptr_is_number:
 .L_end:
         leave
         ret AND_KILL_FRAME(1)
-        
+
 L_code_ptr_is_collection:
         enter 0, 0
         cmp COUNT, 1
@@ -1122,7 +1156,7 @@ L_code_ptr_car:
         mov rax, SOB_PAIR_CAR(rax)
         leave
         ret AND_KILL_FRAME(1)
-        
+
 L_code_ptr_cdr:
         enter 0, 0
         cmp COUNT, 1
@@ -1132,7 +1166,7 @@ L_code_ptr_cdr:
         mov rax, SOB_PAIR_CDR(rax)
         leave
         ret AND_KILL_FRAME(1)
-        
+
 L_code_ptr_string_length:
         enter 0, 0
         cmp COUNT, 1
@@ -1383,7 +1417,7 @@ L_code_ptr_raw_bin_add_zz:
 	call make_integer
 	leave
 	ret AND_KILL_FRAME(2)
-	
+
 L_code_ptr_raw_bin_add_qq:
         enter 0, 0
         cmp COUNT, 2
@@ -1489,7 +1523,7 @@ L_code_ptr_raw_bin_mul_qq:
         call normalize_fraction
         leave
         ret AND_KILL_FRAME(2)
-        
+
 L_code_ptr_raw_bin_div_zz:
 	enter 0, 0
 	cmp COUNT, 2
@@ -1529,7 +1563,7 @@ L_code_ptr_raw_bin_div_qq:
         call normalize_fraction
         leave
         ret AND_KILL_FRAME(2)
-        
+
 normalize_fraction:
         push rsi
         push rdi
@@ -1615,7 +1649,9 @@ L_code_ptr_error:
         mov rdx, qword [rax + 1] ; length
         lea rdi, [rax + 1 + 8]   ; actual characters
         mov rcx, qword [stdout]  ; FILE*
+	ENTER
         call fwrite
+	LEAVE
         mov rdi, fmt_scheme_error_part_3
         mov rax, 0
         ENTER
@@ -1643,7 +1679,7 @@ L_code_ptr_raw_less_than_rr:
 .L_exit:
         leave
         ret AND_KILL_FRAME(2)
-        
+
 L_code_ptr_raw_less_than_zz:
 	enter 0, 0
 	cmp COUNT, 2
@@ -1707,7 +1743,7 @@ L_code_ptr_raw_equal_rr:
 .L_exit:
         leave
         ret AND_KILL_FRAME(2)
-        
+
 L_code_ptr_raw_equal_zz:
 	enter 0, 0
 	cmp COUNT, 2
@@ -1770,7 +1806,7 @@ L_code_ptr_quotient:
         call make_integer
         leave
         ret AND_KILL_FRAME(2)
-        
+
 L_code_ptr_remainder:
         enter 0, 0
         cmp COUNT, 2
@@ -1920,7 +1956,7 @@ L_code_ptr_make_vector:
 .L1:
         leave
         ret AND_KILL_FRAME(2)
-        
+
 L_code_ptr_make_string:
         enter 0, 0
         cmp COUNT, 2
@@ -1958,7 +1994,7 @@ L_code_ptr_numerator:
         call make_integer
         leave
         ret AND_KILL_FRAME(1)
-        
+
 L_code_ptr_denominator:
         enter 0, 0
         cmp COUNT, 1
@@ -2033,9 +2069,9 @@ make_real:
         call malloc
         mov byte [rax], T_real
         movsd qword [rax + 1], xmm0
-        leave 
+        leave
         ret
-        
+
 make_integer:
         enter 0, 0
         mov rsi, rdi
@@ -2045,7 +2081,7 @@ make_integer:
         mov qword [rax + 1], rsi
         leave
         ret
-        
+
 L_error_integer_range:
         mov rdi, qword [stderr]
         mov rsi, fmt_integer_range
@@ -2110,7 +2146,7 @@ L_error_arg_count_3:
         LEAVE
         mov rax, -3
         call exit
-        
+
 L_error_incorrect_type:
         mov rdi, qword [stderr]
         mov rsi, fmt_type
