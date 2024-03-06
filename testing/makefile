@@ -11,7 +11,7 @@ NASM_COMMAND_64 = $(NASM_EXE) $(NASM_OPTIONS) $(NASM_OPTIONS_64) \
 GCC_EXE = gcc
 GCC_OPTIONS = -g
 GCC_OPTIONS_64 = -m64 -no-pie
-GCC_COMMAND_64 = $(GCC_EXE) $(GCC_OPTIONS) $(GCC_OPTIONS_64) -o $* $*.o
+GCC_COMMAND_64 = $(GCC_EXE) $(GCC_OPTIONS) $(GCC_OPTIONS_64) -z execstack -o $* $*.o
 
 .SUFFIXES:	.asm .o .s
 %.o:	%.asm
